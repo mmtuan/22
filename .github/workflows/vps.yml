@@ -1,37 +1,35 @@
-name: "Netbird Server Session"
+name: "Run Docker Android Cloud Phone"
+
 on:
   workflow_dispatch:
-    inputs:
-      duration:
-        description: 'Thời gian chạy (phút)'
-        required: true
-        default: '300'
 
 jobs:
-  netbird-vps:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 350 # gần 6h
-
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Netbird and setup exit node
+      - name: Start Docker Android Emulator
         run: |
-          # Cài đặt Netbird
-          curl -fsSL https://pkgs.netbird.io/install.sh | sh
-          
-          # Kết nối vào mạng và quảng bá là Exit Node
-          # Lưu ý: Cần thay YOUR_SETUP_KEY bằng giá trị Secret
-          sudo netbird up --setup-key ${{ secrets.NETBIRD_SETUP_KEY }} \
-                          --management-url https://api.netbird.io \
-                          --exit-node auto
-                          
-          # Đợi kết nối ổn định
-          sleep 10
-          
-          # Hiển thị IP trong mạng Netbird
-          netbird status --ip
+          docker run -d --privileged \
+            -p 6080:6080 \
+            -p 5554:5554 \
+            -p 5555:5555 \
+            --name android-container \
+            budtmo/docker-android:emulator_11.0
 
-      - name: Giữ máy chủ hoạt động
-        run: sleep ${{ github.event.inputs.duration }}m
+      - name: Install and Start noVNC
+        run: |
+          sudo apt update
+          sudo apt install -y net-tools
+          docker exec android-container /bin/bash -c "apt-get update && apt-get install -y novnc"
+
+      - name: Keep the workflow alive and display connection URL
+        run: |
+          echo "=================================================="
+          echo "🌐 Cloud Phone is ready! Access it via noVNC:"
+          echo "👉 https://localhost:6080/vnc.html"
+          echo "⚠️  You need to use a tool like 'ngrok' or 'Cloudflare Tunnel' to expose this URL to the internet."
+          echo "=================================================="
+          sleep 6h
